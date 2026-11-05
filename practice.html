@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mashq rejimi — MilliyCerti.uz</title>
+<meta name="description" content="Listening va Reading bo'yicha mashq: daraja, qiyinlik va savollar sonini tanlang, darhol izoh oling.">
+<link rel="stylesheet" href="styles.css">
+<script src="data.js"></script>
+<script src="app.js" defer></script>
+</head>
+<body data-page="practice">
+<div id="site-header"></div>
+<main id="main" class="wrap" style="padding:40px 0 80px">
+
+<section id="setup" style="padding:0">
+  <span class="eyebrow">Mashq rejimi</span>
+  <h2>Mashqni sozlang</h2>
+  <p class="lead">Mashqda javobingiz darhol tekshiriladi va izoh ko'rsatiladi. Vaqt cheklovi yo'q. Qat'iy vaqtli imtihon uchun <a href="exam.html" class="grad"><b>Mock imtihon</b></a> bo'limiga o'ting.</p>
+  <form id="form" class="card" style="margin-top:26px;max-width:720px">
+    <div class="grid g2">
+      <div><label for="skill">Ko'nikma</label><select id="skill"><option value="listening">Listening</option><option value="reading">Reading</option></select></div>
+      <div><label for="level">Daraja</label><select id="level"><option value="all">Barchasi</option><option>A1</option><option>A2</option><option>B1</option><option>B2</option><option>C1</option></select></div>
+      <div><label for="diff">Qiyinlik</label><select id="diff"><option value="all">Barchasi</option><option value="easy">Easy</option><option value="medium">Medium</option><option value="difficult">Difficult</option></select></div>
+      <div><label for="count">Savollar soni</label><input id="count" type="number" min="1" max="20" value="5"></div>
+    </div>
+    <p id="avail" style="color:var(--muted);margin:14px 0"></p>
+    <div style="display:flex;gap:12px;flex-wrap:wrap">
+      <button class="btn primary" type="submit" id="startBtn">Mashqni boshlash</button>
+      <button class="btn" type="button" id="savedBtn">Saqlangan savollar</button>
+    </div>
+  </form>
+</section>
+
+<section id="run" class="hidden" style="padding:0"></section>
+
+</main>
+<div id="site-footer"></div>
+<script>
+window.addEventListener("DOMContentLoaded", () => {
+  const $ = id => document.getElementById(id);
+  const SAVED = "mc_saved";
+  const getSaved = () => { try { return JSON.parse(localStorage.getItem(SAVED) || "[]"); } catch (e) { return []; } };
+  const setSaved = a => { try { localStorage.setItem(SAVED, JSON.stringify(a)); } catch (e) {} };
+  const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+
+  const p = new URLSearchParams(location.search);
+  if (p.get("skill")) $("skill").value = p.get("skill");
+
+  const pool = () => MC_QUESTIONS.filter(q =>
+    q.skill === $("skill").value &&
+    ($("level").value === "all" || q.level === $("level").value) &&
+    ($("diff").value === "all" || q.difficulty === $("diff").value));
+  const refresh = () => {
+    const n = pool().length;
+    $("avail").textContent = n ? `Mos keladigan savollar: ${n}` : "Bu tanlov uchun hozircha savol yo'q. Boshqa daraja yoki qiyinlikni tanlang.";
+    $("startBtn").disabled = !n;
+    $("count").max = Math.max(n, 1);
+  };
+  ["skill", "level", "diff"].forEach(id => $(id).onchange = refresh);
+  refresh();
+
+  let list = [], idx = 0, results = {}, checked = {};
+
+  $("form").onsubmit = e => {
+    e.preventDefault();
+    const n = Math.max(1, Math.min(+$("count").value || 5, pool().length));
+    start(shuffle(pool()).slice(0, n));
+  };
+  $("savedBtn").onclick = () => {
+    const ids = getSaved(), qs = MC_QUESTIONS.filter(q => ids.includes(q.id));
+    if (!qs.length) return MC.toast("Hali saqlangan savollar yo'q", "warn");
+    start(qs);
+  };
+
+  function start(qs) {
+    list = qs; idx = 0; results = {}; checked = {};
+    $("setup").classList.add("hidden"); $("run").classList.remove("hidden");
+    MC.speech.stop(); render();
+  }
+
+  function render() {
+    const q = list[idx], saved = getSaved().includes(q.id);
+    const done = Object.keys(checked).length;
+    let ctx = "";
+    if (q.passage) ctx = `<div class="card" style="margin-bottom:18px"><h3>${MC.esc(MC_PASSAGES[q.passage].title)}</h3><div class="passage" style="margin-top:10px;max-height:40vh">${MC.esc(MC_PASSAGES[q.passage].text)}</div></div>`;
+    if (q.audio) ctx = `<div class="card" style="margin-bottom:18px"><div class="audio-box"><button class="btn primary sm" id="play">▶ Tinglash</button><button class="btn sm" id="stop">■ To'xtatish</button>
+      <label style="margin:0">Tezlik <select id="rate" style="width:auto;display:inline-block"><option value="0.85">0.85×</option><option value="1" selected>1×</option></select></label></div>
+      <p style="font-size:.8rem;color:var(--muted);margin-top:8px">${MC.speech.supported() ? "Audio brauzerning ovoz sintezi (TTS) bilan chiqariladi. Mashq rejimida cheksiz takrorlash mumkin." : "Bu brauzer ovoz sintezini qo'llab-quvvatlamaydi."}</p></div>`;
+
+    $("run").innerHTML = `
+      <div class="result-row"><h2 style="margin:0">Mashq: ${idx + 1} / ${list.length}</h2>
+        <button class="btn sm" id="quit">Tugatish</button></div>
+      <div class="bar" style="margin:14px 0 22px"><i style="width:${(done / list.length) * 100}%"></i></div>
+      ${ctx}
+      <div class="card">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px"><span class="tag">${q.level}</span><span class="tag">${q.difficulty}</span><span class="tag">${MC.esc(q.category)}</span></div>
+        <p style="color:var(--muted);font-size:.9rem">${MC.esc(q.instructions)}</p>
+        <h3 style="margin:8px 0 18px">${MC.esc(q.text)}</h3>
+        <div id="answers"></div>
+        <div id="fb"></div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:20px">
+          <button class="btn sm" id="prev" ${idx === 0 ? "disabled" : ""}>← Oldingi</button>
+          <button class="btn sm" id="next">${idx === list.length - 1 ? "Natijalar" : "Keyingi →"}</button>
+          <button class="btn sm" id="save">${saved ? "★ Saqlangan" : "☆ Saqlash"}</button>
+        </div>
+      </div>`;
+
+    if (q.audio) {
+      $("play").onclick = () => { MC.speech.speak(MC_AUDIO[q.audio].script, +$("rate").value); };
+      $("stop").onclick = () => MC.speech.stop();
+    }
+    drawAnswers(q);
+    $("prev").onclick = () => { MC.speech.stop(); idx--; render(); };
+    $("next").onclick = () => { MC.speech.stop(); if (idx === list.length - 1) summary(); else { idx++; render(); } };
+    $("quit").onclick = () => MC.confirm("Mashqni tugatish", "Natijalar sahifasiga o'tasizmi?", "Ha, tugatish", summary);
+    $("save").onclick = () => {
+      let s = getSaved();
+      if (s.includes(q.id)) { s = s.filter(x => x !== q.id); MC.toast("Saqlanganlardan olib tashlandi", "warn"); }
+      else { s.push(q.id); MC.toast("Savol saqlandi", "ok"); }
+      setSaved(s); $("save").textContent = s.includes(q.id) ? "★ Saqlangan" : "☆ Saqlash";
+    };
+  }
+
+  function drawAnswers(q) {
+    const box = $("answers"), isDone = checked[q.id];
+    if (q.type === "gap") {
+      box.innerHTML = `<input type="text" id="gap" autocomplete="off" aria-label="Javob" value="${MC.esc(results[q.id] || "")}" ${isDone ? "disabled" : ""}>
+        ${isDone ? "" : '<button class="btn primary sm" id="chk" style="margin-top:12px">Tekshirish</button>'}`;
+      if (!isDone) {
+        const go = () => { const v = $("gap").value.trim(); if (!v) return MC.toast("Avval javob yozing", "warn"); results[q.id] = v.toLowerCase(); finish(q); };
+        $("chk").onclick = go; $("gap").onkeydown = e => { if (e.key === "Enter") go(); };
+      } else showFeedback(q);
+      return;
+    }
+    box.innerHTML = q.options.map((o, i) => {
+      let cls = "opt";
+      if (isDone) { if (i === q.answer) cls += " right"; else if (i === results[q.id]) cls += " wrong"; }
+      return `<button class="${cls}" data-i="${i}" ${isDone ? "disabled" : ""}><span class="k">${"ABC"[i]}</span><span>${MC.esc(o)}</span></button>`;
+    }).join("");
+    if (isDone) showFeedback(q);
+    else box.querySelectorAll(".opt").forEach(b => b.onclick = () => { results[q.id] = +b.dataset.i; finish(q); });
+  }
+
+  function finish(q) { checked[q.id] = true; drawAnswers(q); const d = Object.keys(checked).length; document.querySelector(".bar>i").style.width = (d / list.length) * 100 + "%"; }
+
+  function showFeedback(q) {
+    const ok = MC.check(q, results[q.id]);
+    const corr = q.type === "gap" ? q.answer[0] : q.options[q.answer];
+    $("fb").innerHTML = `<div class="expl"><b style="color:${ok ? "var(--ok)" : "var(--bad)"}">${ok ? "✔ To'g'ri" : "✘ Noto'g'ri"}</b>
+      ${ok ? "" : `<p>To'g'ri javob: <b>${MC.esc(corr)}</b></p>`}<p style="margin-top:6px">${MC.esc(q.explanation)}</p></div>`;
+  }
+
+  function summary() {
+    MC.speech.stop();
+    const total = list.length, answered = list.filter(q => checked[q.id]);
+    const wrong = list.filter(q => checked[q.id] && !MC.check(q, results[q.id]));
+    const right = answered.length - wrong.length;
+    $("run").innerHTML = `
+      <span class="eyebrow">Mashq natijasi</span><h2>${right} / ${total} to'g'ri</h2>
+      <div class="card" style="max-width:640px"><div class="grid g3 center">
+        <div><div class="stat" style="color:var(--ok)">${right}</div>To'g'ri</div>
+        <div><div class="stat" style="color:var(--bad)">${wrong.length}</div>Noto'g'ri</div>
+        <div><div class="stat">${total - answered.length}</div>Javobsiz</div></div>
+        <p style="color:var(--muted);margin-top:14px">Bu mashq natijasi; rasmiy bal yoki CEFR darajasi emas.</p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:18px">
+          <button class="btn primary" id="retry" ${wrong.length ? "" : "disabled"}>Xatolarni qayta ishlash (${wrong.length})</button>
+          <button class="btn" id="again">Yangi mashq</button></div></div>`;
+    $("again").onclick = () => location.reload();
+    $("retry").onclick = () => start(wrong);
+  }
+});
+</script>
+</body>
+</html>

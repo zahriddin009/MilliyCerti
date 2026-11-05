@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Milliy sertifikat — til sahifasi — MilliyCerti.uz</title>
+<meta name="description" content="Milliy sertifikat imtihoni: til bo'yicha sessiya ma'lumoti va tayyorgarlik holati.">
+<link rel="stylesheet" href="styles.css">
+<script src="data.js"></script>
+<script src="app.js" defer></script>
+</head>
+<body data-page="cert">
+<div id="site-header"></div>
+<main id="main" class="wrap" style="padding:44px 0 80px"><div id="view"></div></main>
+<div id="site-footer"></div>
+<script>
+window.addEventListener("DOMContentLoaded", () => {
+  const id = new URLSearchParams(location.search).get("lang") || "en";
+  const c = MC_CERTS.find(x => x.id === id);
+  const v = document.getElementById("view");
+  if (!c) {
+    document.title = "Til topilmadi — MilliyCerti.uz";
+    v.innerHTML = `<h2>Til topilmadi</h2><p class="lead">Bunday til katalogda yo'q.</p><p style="margin-top:20px"><a class="btn primary" href="index.html#certs">Barcha tillar</a></p>`;
+    return;
+  }
+  document.title = `${c.name} — Milliy sertifikat — MilliyCerti.uz`;
+  const sources = `<p class="demo-note" style="margin-top:14px">Sessiya ma'lumoti ikkilamchi manbadan (<a href="https://infoedu.uz/chet-tilidan-milliy-sertifikat-imtihonlari-avgust-dekabr-2026-sanalari" target="_blank" rel="noopener" class="grad"><b>infoedu.uz</b></a>). Imtihon sanasi, formati va ro'yxatdan o'tishni UZBMB rasmiy e'lonlaridan tekshiring.</p>`;
+  const others = MC_CERTS.filter(x => x.id !== c.id).map(x => `<a class="tag" href="certificate.html?lang=${x.id}">${MC.esc(x.name)}</a>`).join(" ");
+  let status;
+  if (c.ready) {
+    const s = MC_CONFIG.exam.sections;
+    status = `<div class="card"><h3>Tayyorgarlik holati: <span class="grad">Mashq tayyor</span></h3>
+      <p style="color:var(--muted);margin-top:8px">Hozir ${s.map(x => x.title).join(" va ")} bo'yicha mashq va vaqtli demo mock mavjud. Writing va Speaking keyingi bosqichda.</p>
+      <p style="color:var(--muted);margin-top:8px">${MC.esc(MC_CONFIG.officialSpecNote)}</p>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:18px"><a class="btn primary" href="practice.html">Mashq qilish</a><a class="btn" href="exam.html">Mock imtihon</a></div></div>`;
+  } else {
+    status = `<div class="card"><h3>Tayyorgarlik holati: <span class="tag">Tez orada</span></h3>
+      <p style="color:var(--muted);margin-top:8px">${MC.esc(c.name)} uchun savollar bazasi va mock hali tayyor emas. Rasmiy format ma'lumoti ham tasdiqlanmagani uchun bu yerda taxminiy tuzilma ko'rsatilmaydi.</p>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:18px"><a class="btn primary" href="practice.html">Ingliz tili mashqlari</a><a class="btn" href="index.html#certs">Boshqa tillar</a></div></div>`;
+  }
+  v.innerHTML = `
+    <a href="index.html#certs" style="color:var(--muted)">← Barcha tillar</a>
+    <div style="margin:18px 0 26px"><span class="eyebrow">Milliy sertifikat</span>
+      <h1 style="font-size:clamp(2rem,4.5vw,3.2rem)">${MC.esc(c.name)} <span class="grad" dir="auto">· ${MC.esc(c.native)}</span></h1></div>
+    <div class="grid g3" style="margin-bottom:22px">
+      <div class="card"><b>Sessiya</b><p style="color:var(--muted)">${MC.esc(c.session)}</p></div>
+      <div class="card"><b>Format</b><p style="color:var(--muted)">${MC.esc(c.note || "Multilevel (batafsil rasmiy manbada)")}</p></div>
+      <div class="card"><b>Daraja</b><p style="color:var(--muted)">CEFR bo'yicha (multilevel)</p></div>
+    </div>
+    ${status}${sources}
+    <h3 style="margin-top:34px">Boshqa tillar</h3><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">${others}</div>`;
+});
+</script>
+</body>
+</html>
